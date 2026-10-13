@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API sécurisée de réservation Glow Ride
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: sessions
+    description: Disponibilités publiques selon la date et le lieu
+  - name: reservations
+    description: Réservations des clients
+  - name: payments
+    description: Paiements FedaPay
+  - name: admin
+    description: Gestion de la plateforme
 paths:
   /healthz:
     get:
@@ -24,6 +32,486 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: Lister les sessions disponibles pour une période
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Sessions trouvées
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Session" }
+  /availability:
+    get:
+      operationId: getAvailability
+      tags: [sessions]
+      summary: Vérifier les trottinettes restantes pour un créneau et une durée
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: startTime
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$" }
+        - name: durationMinutes
+          in: query
+          required: true
+          schema: { type: integer, minimum: 30, maximum: 720 }
+        - name: quantity
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 20, default: 1 }
+      responses:
+        "200":
+          description: Stock et prix recalculés
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Availability" }
+        "404":
+          description: Session inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /settings/public:
+    get:
+      operationId: getPublicSettings
+      tags: [sessions]
+      summary: Obtenir les tarifs et règles publiques
+      responses:
+        "200":
+          description: Paramètres publics
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicSettings" }
+  /profile:
+    get:
+      operationId: getMyProfile
+      tags: [reservations]
+      summary: Obtenir le profil et le rôle du compte connecté
+      responses:
+        "200":
+          description: Profil local associé au compte sécurisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserProfile" }
+        "401":
+          description: Connexion requise
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /reservations:
+    get:
+      operationId: listMyReservations
+      tags: [reservations]
+      summary: Lister les réservations du compte connecté
+      responses:
+        "200":
+          description: Réservations du client
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Reservation" }
+        "401":
+          description: Connexion requise
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      operationId: createReservation
+      tags: [reservations]
+      summary: Réserver des trottinettes disponibles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationInput" }
+      responses:
+        "201":
+          description: Réservation créée et en attente de paiement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "409":
+          description: Disponibilité insuffisante ou réservation concurrente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Connexion requise
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /reservations/{id}:
+    get:
+      operationId: getMyReservation
+      tags: [reservations]
+      summary: Consulter une réservation appartenant au compte connecté
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Détail de la réservation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "404":
+          description: Réservation inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /reservations/{id}/cancel:
+    post:
+      operationId: cancelMyReservation
+      tags: [reservations]
+      summary: Annuler une réservation du compte connecté
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Réservation annulée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "409":
+          description: Réservation déjà commencée ou terminée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /reservations/{id}/checkout:
+    post:
+      operationId: createCheckout
+      tags: [payments]
+      summary: Créer une transaction FedaPay pour une réservation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckoutInput" }
+      responses:
+        "200":
+          description: Lien de paiement FedaPay
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutResult" }
+        "409":
+          description: Réservation non payable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /payments/fedapay/webhook:
+    post:
+      operationId: receiveFedapayWebhook
+      tags: [payments]
+      summary: Recevoir la confirmation serveur de FedaPay
+      description: Le serveur vérifie l'authenticité de l'événement avant de confirmer une réservation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FedapayWebhookInput" }
+      responses:
+        "200":
+          description: Événement accepté
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionResult" }
+        "401":
+          description: Signature invalide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Résumé des réservations et disponibilités
+      responses:
+        "200":
+          description: Indicateurs de gestion
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOverview" }
+  /admin/locations:
+    get:
+      operationId: listAdminLocations
+      tags: [admin]
+      summary: Lister les lieux gérés par l'administrateur
+      responses:
+        "200":
+          description: Lieux configurés
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Location" }
+    post:
+      operationId: createLocation
+      tags: [admin]
+      summary: Ajouter un lieu ou point de rendez-vous mobile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
+      responses:
+        "201":
+          description: Lieu créé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+  /admin/locations/{id}:
+    patch:
+      operationId: updateLocation
+      tags: [admin]
+      summary: Modifier un lieu
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationUpdate" }
+      responses:
+        "200":
+          description: Lieu modifié
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+    delete:
+      operationId: deleteLocation
+      tags: [admin]
+      summary: Désactiver un lieu sans supprimer l'historique
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lieu désactivé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionResult" }
+  /admin/sessions:
+    get:
+      operationId: listAdminSessions
+      tags: [admin]
+      summary: Lister les sessions de toutes les dates
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Sessions d'activité
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Session" }
+    post:
+      operationId: createSession
+      tags: [admin]
+      summary: Publier une session mobile avec horaires et stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionInput" }
+      responses:
+        "201":
+          description: Session créée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "409":
+          description: Chevauchement ou stock incohérent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /admin/sessions/{id}:
+    patch:
+      operationId: updateSession
+      tags: [admin]
+      summary: Modifier une session publiée
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionUpdate" }
+      responses:
+        "200":
+          description: Session modifiée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+    delete:
+      operationId: deleteSession
+      tags: [admin]
+      summary: Retirer une session non réservée
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Session désactivée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionResult" }
+        "409":
+          description: Session avec réservations confirmées
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /admin/reservations:
+    get:
+      operationId: listAdminReservations
+      tags: [admin]
+      summary: Rechercher et filtrer les réservations de la plateforme
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/BookingStatus" }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Réservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Reservation" }
+  /admin/reservations/{id}:
+    patch:
+      operationId: updateAdminReservation
+      tags: [admin]
+      summary: Mettre à jour l'état opérationnel d'une réservation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminReservationUpdate" }
+      responses:
+        "200":
+          description: Réservation mise à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [admin]
+      summary: Lire les tarifs et durées proposées
+      responses:
+        "200":
+          description: Paramètres modifiables
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicSettings" }
+    patch:
+      operationId: updateAdminSettings
+      tags: [admin]
+      summary: Modifier les tarifs et durées proposées
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200":
+          description: Paramètres mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicSettings" }
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: Lister les comptes et rôles
+      responses:
+        "200":
+          description: Comptes utilisateurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserProfile" }
+  /admin/users/{id}/role:
+    patch:
+      operationId: updateAdminUserRole
+      tags: [admin]
+      summary: Attribuer ou retirer le rôle administrateur
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserRoleUpdate" }
+      responses:
+        "200":
+          description: Rôle mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserProfile" }
 components:
   schemas:
     HealthStatus:
@@ -33,4 +521,215 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+    ActionResult:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success, message]
+    BookingStatus:
+      type: string
+      enum: [pending_payment, confirmed, in_progress, completed, cancelled, expired]
+    PaymentStatus:
+      type: string
+      enum: [unpaid, pending, paid, failed, refunded]
+    PaymentMethod:
+      type: string
+      enum: [mtn_momo, moov_money]
+    Location:
+      type: object
+      properties:
+        id: { type: string }
+        city: { type: string }
+        name: { type: string }
+        address: { type: string }
+        meetingPoint: { type: string }
+        active: { type: boolean }
+      required: [id, city, name, address, meetingPoint, active]
+    LocationInput:
+      type: object
+      properties:
+        city: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        address: { type: string, minLength: 1 }
+        meetingPoint: { type: string, minLength: 1 }
+      required: [city, name, address, meetingPoint]
+    LocationUpdate:
+      type: object
+      properties:
+        city: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        address: { type: string, minLength: 1 }
+        meetingPoint: { type: string, minLength: 1 }
+        active: { type: boolean }
+    Session:
+      type: object
+      properties:
+        id: { type: string }
+        locationId: { type: string }
+        city: { type: string }
+        locationName: { type: string }
+        address: { type: string }
+        meetingPoint: { type: string }
+        date: { type: string, format: date }
+        opensAt: { type: string }
+        closesAt: { type: string }
+        scooterCount: { type: integer }
+        durationsMinutes:
+          type: array
+          items: { type: integer }
+        active: { type: boolean }
+      required: [id, locationId, city, locationName, address, meetingPoint, date, opensAt, closesAt, scooterCount, durationsMinutes, active]
+    SessionInput:
+      type: object
+      properties:
+        locationId: { type: string, minLength: 1 }
+        date: { type: string, format: date }
+        opensAt: { type: string }
+        closesAt: { type: string }
+        scooterCount: { type: integer, minimum: 1, maximum: 100 }
+        durationsMinutes:
+          type: array
+          items: { type: integer, minimum: 30, maximum: 720 }
+        active: { type: boolean, default: true }
+      required: [locationId, date, opensAt, closesAt, scooterCount, durationsMinutes]
+    SessionUpdate:
+      type: object
+      properties:
+        locationId: { type: string, minLength: 1 }
+        date: { type: string, format: date }
+        opensAt: { type: string }
+        closesAt: { type: string }
+        scooterCount: { type: integer, minimum: 1, maximum: 100 }
+        durationsMinutes:
+          type: array
+          items: { type: integer, minimum: 30, maximum: 720 }
+        active: { type: boolean }
+    Availability:
+      type: object
+      properties:
+        sessionId: { type: string }
+        startTime: { type: string }
+        durationMinutes: { type: integer }
+        requestedQuantity: { type: integer }
+        availableScooters: { type: integer }
+        priceXof: { type: integer }
+        available: { type: boolean }
+      required: [sessionId, startTime, durationMinutes, requestedQuantity, availableScooters, priceXof, available]
+    PublicSettings:
+      type: object
+      properties:
+        currency: { type: string, enum: [XOF] }
+        unlockFeeXof: { type: integer }
+        pricePerMinuteXof: { type: integer }
+        durationsMinutes:
+          type: array
+          items: { type: integer }
+        maximumAdvanceDays: { type: integer }
+        cancellationCutoffMinutes: { type: integer }
+        paymentMethods:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentMethod" }
+      required: [currency, unlockFeeXof, pricePerMinuteXof, durationsMinutes, maximumAdvanceDays, cancellationCutoffMinutes, paymentMethods]
+    SettingsUpdate:
+      type: object
+      properties:
+        unlockFeeXof: { type: integer, minimum: 0 }
+        pricePerMinuteXof: { type: integer, minimum: 0 }
+        durationsMinutes:
+          type: array
+          minItems: 1
+          items: { type: integer, minimum: 30, maximum: 720 }
+        maximumAdvanceDays: { type: integer, minimum: 1, maximum: 365 }
+        cancellationCutoffMinutes: { type: integer, minimum: 0, maximum: 10080 }
+    Reservation:
+      type: object
+      properties:
+        id: { type: string }
+        reference: { type: string }
+        sessionId: { type: string }
+        userId: { type: string }
+        date: { type: string, format: date }
+        city: { type: string }
+        locationName: { type: string }
+        address: { type: string }
+        meetingPoint: { type: string }
+        startTime: { type: string }
+        endTime: { type: string }
+        durationMinutes: { type: integer }
+        scooterCount: { type: integer }
+        amountXof: { type: integer }
+        bookingStatus: { $ref: "#/components/schemas/BookingStatus" }
+        paymentStatus: { $ref: "#/components/schemas/PaymentStatus" }
+        paymentMethod: { type: ["string", "null"], enum: [mtn_momo, moov_money, null] }
+        paymentReference: { type: ["string", "null"] }
+        holdExpiresAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+      required: [id, reference, sessionId, userId, date, city, locationName, address, meetingPoint, startTime, endTime, durationMinutes, scooterCount, amountXof, bookingStatus, paymentStatus, paymentMethod, paymentReference, holdExpiresAt, createdAt]
+    ReservationInput:
+      type: object
+      properties:
+        sessionId: { type: string, minLength: 1 }
+        startTime: { type: string }
+        durationMinutes: { type: integer, minimum: 30, maximum: 720 }
+        scooterCount: { type: integer, minimum: 1, maximum: 20 }
+      required: [sessionId, startTime, durationMinutes, scooterCount]
+    CheckoutInput:
+      type: object
+      properties:
+        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
+        phoneNumber: { type: string, minLength: 8, maxLength: 20 }
+      required: [paymentMethod, phoneNumber]
+    CheckoutResult:
+      type: object
+      properties:
+        redirectUrl: { type: string, format: uri }
+        reference: { type: string }
+      required: [redirectUrl, reference]
+    FedapayWebhookInput:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        entity:
+          type: object
+          additionalProperties: true
+      required: [id, name, entity]
+    AdminReservationUpdate:
+      type: object
+      properties:
+        bookingStatus:
+          type: string
+          enum: [confirmed, in_progress, completed, cancelled]
+    AdminOverview:
+      type: object
+      properties:
+        todayReservations: { type: integer }
+        pendingPayments: { type: integer }
+        scootersInUse: { type: integer }
+        upcomingSessions: { type: integer }
+        revenueTodayXof: { type: integer }
+        recentReservations:
+          type: array
+          items: { $ref: "#/components/schemas/Reservation" }
+      required: [todayReservations, pendingPayments, scootersInUse, upcomingSessions, revenueTodayXof, recentReservations]
+    UserProfile:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [user, admin] }
+        createdAt: { type: string, format: date-time }
+      required: [id, email, fullName, role, createdAt]
+    UserRoleUpdate:
+      type: object
+      properties:
+        role: { type: string, enum: [user, admin] }
+      required: [role]
 

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "GLOW-Ride"
+description = "Plateforme web de réservation de trottinettes Glow Ride avec comptes utilisateurs, disponibilités mobiles par date, réservation, paiements FedaPay et espace d’administration."
+version = "1.0.0"
+id = "artifacts/glow-ride"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26160
+
+[services.development]
+run = "pnpm --filter @workspace/glow-ride run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/glow-ride", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/glow-ride/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26160"
+BASE_PATH = "/"
