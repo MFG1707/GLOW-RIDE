@@ -14,7 +14,8 @@ export interface Reservation {
   reference: string;
   sessionId: string;
   userId: string;
-  date: Date;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  date: string;
   city: string;
   locationName: string;
   address: string;

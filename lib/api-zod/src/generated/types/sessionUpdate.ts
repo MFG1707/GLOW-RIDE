@@ -9,7 +9,8 @@
 export interface SessionUpdate {
   /** @minLength 1 */
   locationId?: string;
-  date?: Date;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  date?: string;
   opensAt?: string;
   closesAt?: string;
   /**

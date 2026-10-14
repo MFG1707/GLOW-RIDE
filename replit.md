@@ -1,45 +1,56 @@
-# [Project name]
+# GLOW-Ride
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Booking and fleet-management platform for electric scooter sessions in Benin.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/glow-ride run dev` — run the customer website
+- `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm run build` — typecheck and build all packages
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI
+- `pnpm --filter @workspace/db run push` — push database schema changes to development
+- Required environment: `DATABASE_URL`, Clerk keys; `FEDAPAY_SECRET_KEY` for payments
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- pnpm workspaces, Node.js, TypeScript
+- Web: React, Vite, Clerk authentication
+- API: Express, Clerk session validation, FedaPay server-side payments
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- API codegen: Orval
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/glow-ride` — public site, customer bookings, accounts and admin UI
+- `artifacts/api-server` — API routes and FedaPay webhook
+- `lib/db/src/schema` — database models
+- `lib/api-spec/openapi.yaml` — API source of truth for generated contracts and hooks
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- React/Vite + Express + PostgreSQL is the stack selected for this workspace; do not switch frameworks or databases without an explicit request.
+- Admin access uses verified Clerk email allowlisting through `ADMIN_EMAILS`; never use a shared default password or trust a client-supplied role.
+- FedaPay credentials and payment verification stay server-side; configure a webhook signature secret before recording confirmed payments.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Customers reserve available scooters for administrator-published dates and times, pay through FedaPay, and view or cancel eligible reservations.
+- Customers can see remaining ride time and the scheduled end time.
+- Administrators manage locations, dated sessions, scooter stock, reservations, fares, and account roles.
+- Locations are temporary meetup points attached to scheduled activity, not permanent always-open rental stations.
+- Development seed records are fictional examples, not real riders or transactions.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Preserve booking and user/admin capabilities when updating the visual design.
+- Show `Produit par MFG-TECH` in the footer on every page.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Regenerate the Zod schemas and client hooks after changing the OpenAPI file.
+- Payment status updates require the FedaPay endpoint webhook secret in Replit Secrets.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `pnpm-workspace` skill for workspace structure and TypeScript project details.

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
+import { QueryClient, QueryClientProvider, useQueries, useQueryClient } from '@tanstack/react-query';
+import { ClerkProvider, Show, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Bike, CalendarDays, Check, Clock3, Gauge, MapPin, Menu, Minus, Plus, ShieldCheck, X } from 'lucide-react';
@@ -9,7 +9,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  getGetAdminOverviewQueryKey, getGetAdminSettingsQueryKey, getGetAvailabilityQueryKey,
+  getAvailability, getGetAdminOverviewQueryKey, getGetAdminSettingsQueryKey, getGetAvailabilityQueryKey,
   getGetMyProfileQueryKey, getGetMyReservationQueryKey, getGetPublicSettingsQueryKey, getListAdminLocationsQueryKey,
   getListAdminReservationsQueryKey, getListAdminSessionsQueryKey, getListAdminUsersQueryKey,
   getListMyReservationsQueryKey, getListSessionsQueryKey, useCancelMyReservation,
@@ -167,6 +167,17 @@ function ReservePage() {
   const [, setLocation] = useLocation(), book = useBookingData();
   const { session, date, setDate, matching, sessionsQ, hours, durations, startTime, setStartTime, duration, setDuration, quantity, setQuantity, availabilityQ } = book;
   const avail = availabilityQ.data;
+  const slotAvailability = useQueries({
+    queries: hours.map(slotStart => {
+      const params = { sessionId: session?.id ?? '', startTime: slotStart, durationMinutes: duration, quantity };
+      return {
+        queryKey: getGetAvailabilityQueryKey(params),
+        queryFn: () => getAvailability(params),
+        enabled: !!session?.id && durations.includes(duration),
+        refetchInterval: 30_000,
+      };
+    }),
+  });
   const price = avail?.priceXof;
   const selectAndContinue = () => { if (!session || !startTime || !avail?.available) return; setSelection({ sessionId: session.id, date, startTime, durationMinutes: duration, scooterCount: quantity, priceXof: price }); setLocation('/reserve/review'); };
   const dates = useMemo(() => [...new Set((sessionsQ.data ?? []).filter(s => s.active).map(s => s.date))].sort(), [sessionsQ.data]);
@@ -178,7 +189,7 @@ function ReservePage() {
       <section className="booking-panel"><div className="panel-title"><span className="number-chip">02</span><div><h2>Le lieu du jour</h2><p>Lié à la date sélectionnée</p></div><MapPin size={19} /></div>
         {matching.length ? <div className="location-choice">{matching.map(s=><button className={`location-card ${session?.id === s.id ? 'selected' : ''}`} key={s.id} onClick={()=>book.setSessionId(s.id)} data-testid={`button-location-${s.id}`}><i /><span><strong>{s.city} · {s.locationName}</strong><small>{s.address}</small><small>Rendez-vous : {s.meetingPoint}</small></span><Check size={17} /></button>)}</div> : <div className="inline-empty">Pas de session pour cette date. Choisissez une autre journée.</div>}
       </section>
-      <section className="booking-panel"><div className="panel-title"><span className="number-chip">03</span><div><h2>Choisissez un horaire</h2><p>Les créneaux complets sont désactivés</p></div><Clock3 size={19} /></div><div className="choice-chips">{hours.map(t=><button key={t} className={`choice-chip ${startTime===t?'selected':''}`} onClick={()=>setStartTime(t)} data-testid={`button-time-${t}`}>{t} – {`${String((Number(t.slice(0,2))+1)%24).padStart(2,'0')}:${t.slice(3)}`}</button>)}</div></section>
+      <section className="booking-panel"><div className="panel-title"><span className="number-chip">03</span><div><h2>Choisissez un horaire</h2><p>Les créneaux complets sont désactivés</p></div><Clock3 size={19} /></div><div className="choice-chips">{hours.map((t,index)=>{const slot=slotAvailability[index]?.data,isFull=slotAvailability[index]?.isSuccess&&!slot?.available;return <button key={t} disabled={isFull} title={isFull?'Créneau complet':''} className={`choice-chip ${startTime===t?'selected':''} ${isFull?'unavailable':''}`} onClick={()=>setStartTime(t)} data-testid={`button-time-${t}`}>{t} – {`${String((Number(t.slice(0,2))+1)%24).padStart(2,'0')}:${t.slice(3)}`}{isFull?' · Complet':''}</button>})}</div></section>
       <section className="booking-panel"><div className="panel-title"><span className="number-chip">04</span><div><h2>Choisissez une durée</h2><p>Limitée par le créneau</p></div><Gauge size={19} /></div><div className="choice-chips">{durations.map(d=><button key={d} className={`choice-chip ${duration===d?'selected':''}`} onClick={()=>setDuration(d)} data-testid={`button-duration-${d}`}>{durationName(d)}</button>)}</div><small className="helper-line">Tarif calculé selon la durée.</small></section>
       <section className="booking-panel"><div className="panel-title"><span className="number-chip">05</span><div><h2>Combien de trottinettes ?</h2><p>Limité par le stock du créneau</p></div><Bike size={19} /></div><div className="quantity-control"><button disabled={quantity <= 1} onClick={()=>setQuantity(Math.max(1,quantity-1))} aria-label="Retirer une trottinette" data-testid="button-quantity-minus"><Minus size={16}/></button><strong data-testid="text-quantity">{quantity}</strong><button disabled={quantity >= Math.min(20,avail?.availableScooters ?? 20)} onClick={()=>setQuantity(quantity+1)} aria-label="Ajouter une trottinette" data-testid="button-quantity-plus"><Plus size={16}/></button><span>sur {avail?.availableScooters ?? '—'}</span></div>
       </section>
@@ -195,9 +206,9 @@ function SessionRecap({ selection }: { selection: Selection }) {
   return <div className="recap-card"><h2>Votre session</h2><div className="summary-row"><span>Date</span><strong>{dateLabel(selection.date)}</strong></div><div className="summary-row"><span>Lieu</span><strong>{session ? `${session.city} · ${session.locationName}` : 'Chargement…'}</strong></div><div className="summary-row"><span>Horaire</span><strong>{selection.startTime}</strong></div><div className="summary-row"><span>Durée</span><strong>{durationName(selection.durationMinutes)}</strong></div><div className="summary-row"><span>Trottinettes</span><strong>{selection.scooterCount}</strong></div>{session&&<><div className="recap-divider"/><span className="eyebrow">POINT DE RENDEZ-VOUS</span><p className="meeting-detail">{session.meetingPoint}</p><small>{session.address}</small></>}</div>;
 }
 function ReviewPage() {
-  const [, setLocation] = useLocation(); const [selection] = useState(getSelection); const qc = useQueryClient();
+  const [, setLocation] = useLocation(); const { isSignedIn } = useAuth(); const [selection] = useState(getSelection); const qc = useQueryClient();
   const create = useCreateReservation();
-  const reserve = () => { if (!selection) return; create.mutate({ data: { sessionId: selection.sessionId, startTime: selection.startTime, durationMinutes: selection.durationMinutes, scooterCount: selection.scooterCount } }, { onSuccess: (reservation) => { qc.invalidateQueries({queryKey:getListMyReservationsQueryKey()}); qc.invalidateQueries({queryKey:getGetMyReservationQueryKey(reservation.id)}); qc.invalidateQueries({queryKey:getGetAvailabilityQueryKey()}); sessionStorage.setItem(reservationKey, reservation.id); setLocation(`/reserve/confirmation?id=${encodeURIComponent(reservation.id)}`); }, onError: () => {} }); };
+  const reserve = () => { if (!selection) return; if (!isSignedIn) { setLocation('/sign-in?redirect_url=%2Freserve%2Freview'); return; } create.mutate({ data: { sessionId: selection.sessionId, startTime: selection.startTime, durationMinutes: selection.durationMinutes, scooterCount: selection.scooterCount } }, { onSuccess: (reservation) => { qc.invalidateQueries({queryKey:getListMyReservationsQueryKey()}); qc.invalidateQueries({queryKey:getGetMyReservationQueryKey(reservation.id)}); qc.invalidateQueries({queryKey:getGetAvailabilityQueryKey()}); sessionStorage.setItem(reservationKey, reservation.id); setLocation(`/reserve/confirmation?id=${encodeURIComponent(reservation.id)}`); }, onError: () => {} }); };
   if (!selection) return <Shell><div className="empty-route"><Empty title="Votre sélection a expiré." detail="Recommencez la réservation pour choisir une session disponible."/><Link href="/reserve" className="button-primary" data-testid="link-return-booking">Choisir une session</Link></div></Shell>;
   return <Shell><div className="booking-page"><Progress step={2}/><Link href="/reserve" className="back-link" data-testid="link-edit-selection"><ArrowLeft size={15}/> Modifier ma sélection</Link><div className="booking-heading"><span className="eyebrow red-text">RÉCAPITULATIF</span><h1>Vérifiez avant<br /><em>de valider.</em></h1><p>Encore un instant, votre créneau est presque réservé.</p></div><div className="review-layout"><div><SessionRecap selection={selection}/><div className="reassurance-card"><ShieldCheck/><div><strong>Créneau vérifié à la réservation</strong><p>La réservation sera créée sur les disponibilités communiquées pour cette session.</p></div></div></div><aside className="booking-summary review-payment"><span className="eyebrow">TOTAL DE LA SESSION</span><strong className="review-price">{selection.priceXof === undefined ? 'Calculé à la validation' : money(selection.priceXof)}</strong><p>Le règlement se poursuit à l’étape suivante avec le moyen de paiement proposé.</p>{create.isError&&<ErrorPanel text="La réservation n’a pas pu être créée. Vérifiez la disponibilité et réessayez."/>}<button onClick={reserve} disabled={create.isPending} className="button-primary full" data-testid="button-confirm-booking">{create.isPending ? 'Validation…' : 'Valider ma réservation'} <ArrowRight size={16}/></button><small>La disponibilité est confirmée par le serveur.</small></aside></div></div></Shell>;
 }
@@ -229,9 +240,12 @@ function MyReservationsContent() {
 }
 function Countdown({ reservation }: { reservation: Reservation }) {
   const [now,setNow]=useState(Date.now()); useEffect(()=>{const i=window.setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(i)},[]);
-  const start=new Date(`${reservation.date}T${reservation.startTime}:00`).getTime(), delta=Math.max(0,start-now);
+  const start=new Date(`${reservation.date}T${reservation.startTime}:00+01:00`).getTime();
+  const end=new Date(`${reservation.date}T${reservation.endTime}:00+01:00`).getTime();
+  const beforeStart=now<start, onRide=now>=start&&now<end, target=beforeStart?start:onRide?end:now;
+  const delta=Math.max(0,target-now);
   const days=Math.floor(delta/86400000), hours=Math.floor(delta%86400000/3600000), mins=Math.floor(delta%3600000/60000), sec=Math.floor(delta%60000/1000);
-  return <div className="ride-countdown" data-testid={`countdown-${reservation.id}`}><span>{delta ? 'DÉPART DANS' : 'CRÉNEAU EN COURS'}</span><strong>{days?`${days}j `:''}{String(hours).padStart(2,'0')}:{String(mins).padStart(2,'0')}:{String(sec).padStart(2,'0')}</strong></div>;
+  return <div className="ride-countdown" data-testid={`countdown-${reservation.id}`}><span>{beforeStart ? 'DÉPART DANS' : onRide ? 'TEMPS DE LOCATION RESTANT' : 'LOCATION TERMINÉE'}</span><strong>{beforeStart||onRide?`${days?`${days}j `:''}${String(hours).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:'00:00:00'}</strong></div>;
 }
 function ReservationCard({reservation:r}:{reservation:Reservation}) {
   const active = ['confirmed','in_progress'].includes(r.bookingStatus);

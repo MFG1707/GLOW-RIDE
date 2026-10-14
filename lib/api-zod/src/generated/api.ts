@@ -20,10 +20,17 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Lister les sessions disponibles pour une période
  */
+export const listSessionsQueryFromRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const listSessionsQueryToRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const ListSessionsQueryParams = zod.object({
-  "from": zod.date(),
-  "to": zod.date()
+  "from": zod.coerce.string().regex(listSessionsQueryFromRegExp),
+  "to": zod.coerce.string().regex(listSessionsQueryToRegExp)
 })
+
+export const listSessionsResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
 
 export const ListSessionsResponseItem = zod.object({
   "id": zod.string(),
@@ -32,7 +39,7 @@ export const ListSessionsResponseItem = zod.object({
   "locationName": zod.string(),
   "address": zod.string(),
   "meetingPoint": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(listSessionsResponseDateRegExp),
   "opensAt": zod.string(),
   "closesAt": zod.string(),
   "scooterCount": zod.number().int(),
@@ -101,12 +108,15 @@ export const GetMyProfileResponse = zod.object({
 /**
  * @summary Lister les réservations du compte connecté
  */
+export const listMyReservationsResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const ListMyReservationsResponseItem = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(listMyReservationsResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -144,12 +154,15 @@ export const CreateReservationBody = zod.object({
   "scooterCount": zod.number().int().min(1).max(createReservationBodyScooterCountMax)
 })
 
+export const createReservationResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const CreateReservationResponse = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(createReservationResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -175,12 +188,15 @@ export const GetMyReservationParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const getMyReservationResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const GetMyReservationResponse = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(getMyReservationResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -206,12 +222,15 @@ export const CancelMyReservationParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const cancelMyReservationResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const CancelMyReservationResponse = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(cancelMyReservationResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -272,6 +291,9 @@ export const ReceiveFedapayWebhookResponse = zod.object({
 /**
  * @summary Résumé des réservations et disponibilités
  */
+export const getAdminOverviewResponseRecentReservationsItemDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const GetAdminOverviewResponse = zod.object({
   "todayReservations": zod.number().int(),
   "pendingPayments": zod.number().int(),
@@ -283,7 +305,7 @@ export const GetAdminOverviewResponse = zod.object({
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(getAdminOverviewResponseRecentReservationsItemDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -390,10 +412,17 @@ export const DeleteLocationResponse = zod.object({
 /**
  * @summary Lister les sessions de toutes les dates
  */
+export const listAdminSessionsQueryFromRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const listAdminSessionsQueryToRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const ListAdminSessionsQueryParams = zod.object({
-  "from": zod.date().optional(),
-  "to": zod.date().optional()
+  "from": zod.coerce.string().regex(listAdminSessionsQueryFromRegExp).optional(),
+  "to": zod.coerce.string().regex(listAdminSessionsQueryToRegExp).optional()
 })
+
+export const listAdminSessionsResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
 
 export const ListAdminSessionsResponseItem = zod.object({
   "id": zod.string(),
@@ -402,7 +431,7 @@ export const ListAdminSessionsResponseItem = zod.object({
   "locationName": zod.string(),
   "address": zod.string(),
   "meetingPoint": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(listAdminSessionsResponseDateRegExp),
   "opensAt": zod.string(),
   "closesAt": zod.string(),
   "scooterCount": zod.number().int(),
@@ -416,6 +445,7 @@ export const ListAdminSessionsResponse = zod.array(ListAdminSessionsResponseItem
  * @summary Publier une session mobile avec horaires et stock
  */
 
+export const createSessionBodyDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const createSessionBodyScooterCountMax = 100;
 
 export const createSessionBodyDurationsMinutesItemMin = 30;
@@ -425,13 +455,16 @@ export const createSessionBodyActiveDefault = true;
 
 export const CreateSessionBody = zod.object({
   "locationId": zod.string().min(1),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(createSessionBodyDateRegExp),
   "opensAt": zod.string(),
   "closesAt": zod.string(),
   "scooterCount": zod.number().int().min(1).max(createSessionBodyScooterCountMax),
   "durationsMinutes": zod.array(zod.number().int().min(createSessionBodyDurationsMinutesItemMin).max(createSessionBodyDurationsMinutesItemMax)),
   "active": zod.boolean().default(createSessionBodyActiveDefault)
 })
+
+export const createSessionResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
 
 export const CreateSessionResponse = zod.object({
   "id": zod.string(),
@@ -440,7 +473,7 @@ export const CreateSessionResponse = zod.object({
   "locationName": zod.string(),
   "address": zod.string(),
   "meetingPoint": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(createSessionResponseDateRegExp),
   "opensAt": zod.string(),
   "closesAt": zod.string(),
   "scooterCount": zod.number().int(),
@@ -457,6 +490,7 @@ export const UpdateSessionParams = zod.object({
 })
 
 
+export const updateSessionBodyDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const updateSessionBodyScooterCountMax = 100;
 
 export const updateSessionBodyDurationsMinutesItemMin = 30;
@@ -466,13 +500,16 @@ export const updateSessionBodyDurationsMinutesItemMax = 720;
 
 export const UpdateSessionBody = zod.object({
   "locationId": zod.string().min(1).optional(),
-  "date": zod.coerce.date().optional(),
+  "date": zod.string().regex(updateSessionBodyDateRegExp).optional(),
   "opensAt": zod.string().optional(),
   "closesAt": zod.string().optional(),
   "scooterCount": zod.number().int().min(1).max(updateSessionBodyScooterCountMax).optional(),
   "durationsMinutes": zod.array(zod.number().int().min(updateSessionBodyDurationsMinutesItemMin).max(updateSessionBodyDurationsMinutesItemMax)).optional(),
   "active": zod.boolean().optional()
 })
+
+export const updateSessionResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
 
 export const UpdateSessionResponse = zod.object({
   "id": zod.string(),
@@ -481,7 +518,7 @@ export const UpdateSessionResponse = zod.object({
   "locationName": zod.string(),
   "address": zod.string(),
   "meetingPoint": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(updateSessionResponseDateRegExp),
   "opensAt": zod.string(),
   "closesAt": zod.string(),
   "scooterCount": zod.number().int(),
@@ -506,18 +543,25 @@ export const DeleteSessionResponse = zod.object({
 /**
  * @summary Rechercher et filtrer les réservations de la plateforme
  */
+export const listAdminReservationsQueryFromRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const listAdminReservationsQueryToRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const ListAdminReservationsQueryParams = zod.object({
   "status": zod.enum(['pending_payment', 'confirmed', 'in_progress', 'completed', 'cancelled', 'expired']).optional(),
-  "from": zod.date().optional(),
-  "to": zod.date().optional()
+  "from": zod.coerce.string().regex(listAdminReservationsQueryFromRegExp).optional(),
+  "to": zod.coerce.string().regex(listAdminReservationsQueryToRegExp).optional()
 })
+
+export const listAdminReservationsResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
 
 export const ListAdminReservationsResponseItem = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(listAdminReservationsResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),
@@ -548,12 +592,15 @@ export const UpdateAdminReservationBody = zod.object({
   "bookingStatus": zod.enum(['confirmed', 'in_progress', 'completed', 'cancelled']).optional()
 })
 
+export const updateAdminReservationResponseDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+
+
 export const UpdateAdminReservationResponse = zod.object({
   "id": zod.string(),
   "reference": zod.string(),
   "sessionId": zod.string(),
   "userId": zod.string(),
-  "date": zod.coerce.date(),
+  "date": zod.string().regex(updateAdminReservationResponseDateRegExp),
   "city": zod.string(),
   "locationName": zod.string(),
   "address": zod.string(),

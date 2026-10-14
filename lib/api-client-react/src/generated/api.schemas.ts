@@ -88,6 +88,7 @@ export interface Session {
   locationName: string;
   address: string;
   meetingPoint: string;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
   date: string;
   opensAt: string;
   closesAt: string;
@@ -99,6 +100,7 @@ export interface Session {
 export interface SessionInput {
   /** @minLength 1 */
   locationId: string;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
   date: string;
   opensAt: string;
   closesAt: string;
@@ -118,6 +120,7 @@ export interface SessionInput {
 export interface SessionUpdate {
   /** @minLength 1 */
   locationId?: string;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
   date?: string;
   opensAt?: string;
   closesAt?: string;
@@ -200,6 +203,7 @@ export interface Reservation {
   reference: string;
   sessionId: string;
   userId: string;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
   date: string;
   city: string;
   locationName: string;
@@ -311,7 +315,13 @@ export interface UserRoleUpdate {
 }
 
 export type ListSessionsParams = {
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 from: string;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 to: string;
 };
 
@@ -334,13 +344,25 @@ quantity?: number;
 };
 
 export type ListAdminSessionsParams = {
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 from?: string;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 to?: string;
 };
 
 export type ListAdminReservationsParams = {
 status?: BookingStatus;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 from?: string;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
 to?: string;
 };
 

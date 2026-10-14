@@ -9,6 +9,12 @@ import type { BookingStatus } from './bookingStatus';
 
 export type ListAdminReservationsParams = {
 status?: BookingStatus;
-from?: Date;
-to?: Date;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
+from?: string;
+/**
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
+to?: string;
 };

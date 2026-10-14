@@ -13,7 +13,8 @@ export interface Session {
   locationName: string;
   address: string;
   meetingPoint: string;
-  date: Date;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  date: string;
   opensAt: string;
   closesAt: string;
   scooterCount: number;
